@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { pollJob } from "./pollJob";
 import "./styles.css";
 
 type JobState = "queued" | "running" | "completed" | "failed";
@@ -130,32 +131,13 @@ function App() {
   const [isLoadingSamples, setIsLoadingSamples] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [pollError, setPollError] = useState<string | null>(null);
   // Show the explanation on load; re-openable from the title.
   const [isAboutOpen, setIsAboutOpen] = useState(true);
 
   useEffect(() => {
     if (!jobId) return;
-    let cancelled = false;
-    let intervalId: number | undefined;
-
-    async function poll() {
-      const response = await fetch(`${API_BASE}/api/jobs/${jobId}`);
-      if (!response.ok) return;
-      const nextStatus = (await response.json()) as JobStatus;
-      if (cancelled) return;
-      setStatus(nextStatus);
-      // The job is immutable once it reaches a terminal state, so stop polling.
-      if (nextStatus.state === "completed" || nextStatus.state === "failed") {
-        if (intervalId !== undefined) window.clearInterval(intervalId);
-      }
-    }
-
-    poll();
-    intervalId = window.setInterval(poll, 1200);
-    return () => {
-      cancelled = true;
-      if (intervalId !== undefined) window.clearInterval(intervalId);
-    };
+    return pollJob<JobStatus>(`${API_BASE}/api/jobs/${jobId}`, setStatus, setPollError);
   }, [jobId]);
 
   useEffect(() => {
@@ -171,6 +153,8 @@ function App() {
     setPrompt(normalizedPrompt);
     setExpectedAnswer(normalizedExpectedAnswer);
     setMessage(null);
+    setPollError(null);
+    setJobId(null);
     setSelected(null);
     setStatus(null);
     setIsStarting(true);
@@ -317,9 +301,9 @@ function App() {
 
       <div className="statusStrip">
         <p className="status-step">
-          {status
+          {pollError ?? (status
             ? status.current_step
-            : "文と期待する次の単語を入力して Go を押してください"}
+            : "文と期待する次の単語を入力して Go を押してください")}
         </p>
         {status && (
           <p className="prediction">
@@ -336,12 +320,12 @@ function App() {
           <div className="graphShell">
             <div className="stagePlaceholder">
               <p className="big">
-                {status ? "モデル構造を準備中です" : "INPUT から OUTPUT までの流れを可視化します"}
+                {pollError ? "進捗の取得を停止しました" : status ? "モデル構造を準備中です" : "INPUT から OUTPUT までの流れを可視化します"}
               </p>
               <p className="sub">
-                {status
+                {pollError ?? (status
                   ? status.current_step
-                  : "Transformer の各層が、期待する単語をどれだけ予測できているかを表示します"}
+                  : "Transformer の各層が、期待する単語をどれだけ予測できているかを表示します")}
               </p>
             </div>
           </div>
@@ -866,7 +850,6 @@ function AttentionHeatmap({ data }: { data: AttentionData }) {
   const cellSize = 28;
   const labelSize = 118;
   const size = data.tokens.length * cellSize;
-  const maxValue = Math.max(...data.values.flat(), 1);
   const [tip, setTip] = useState<{ row: number; col: number; value: number; x: number; y: number } | null>(
     null,
   );
@@ -915,7 +898,7 @@ function AttentionHeatmap({ data }: { data: AttentionData }) {
             }
             const x = labelSize + columnIndex * cellSize;
             const y = labelSize + rowIndex * cellSize;
-            const intensity = Math.max(0, Math.min(1, value / maxValue));
+            const intensity = Math.max(0, Math.min(1, value));
             return (
               <rect
                 key={`${rowIndex}-${columnIndex}`}

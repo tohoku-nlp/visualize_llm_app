@@ -42,7 +42,7 @@ uv sync
 バックエンドを起動します．
 
 ```bash
-uv run uvicorn backend:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn backend:app --reload --host localhost --port 8000
 ```
 
 別のターミナルでフロントエンドを起動します．
@@ -68,7 +68,7 @@ cd frontend
 npm install
 npm run build
 cd ..
-uv run uvicorn backend:app --host 0.0.0.0 --port 8000
+uv run uvicorn backend:app --host localhost --port 8000
 ```
 
 ブラウザで `http://localhost:8000` を開きます．
@@ -131,3 +131,7 @@ uv run uvicorn backend:app --host 0.0.0.0 --port 8000
 - 環境管理: uv
 - バックエンド: FastAPI / Uvicorn / TransformerLens (v2.16.1) / PyTorch (v2.7.1)
 - フロントエンド: React 18 / Vite 6 / TypeScript
+
+## 元リポジトリについて
+
+本リポジトリは，[Fukata-K/visualize_llm_app](https://github.com/Fukata-K/visualize_llm_app) をもとに，UI 部分を Streamlit から React + FastAPI 構成へ換装したものです．

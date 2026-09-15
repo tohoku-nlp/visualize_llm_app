@@ -63,18 +63,23 @@ def get_expected_token_ids(
     prompt: str,
     expected_answer: str,
 ) -> list[int]:
-    """Return unique first-token candidates with and without a separating space."""
+    """Return first-token candidates whose tokenization preserves the prompt."""
     if not expected_answer:
         return []
 
-    prompt_length = len(model.to_tokens(prompt, prepend_bos=False)[0])
+    prompt_tokens = model.to_tokens(prompt, prepend_bos=False)[0]
+    prompt_length = len(prompt_tokens)
     token_ids = []
     for separator in (" ", ""):
         full_tokens = model.to_tokens(
             prompt + separator + expected_answer,
             prepend_bos=False,
         )[0]
-        if len(full_tokens) > prompt_length:
+        # Concatenation can retokenize the prompt's last token. Such a sequence
+        # cannot be produced by appending a next token to the original input.
+        if len(full_tokens) > prompt_length and torch.equal(
+            full_tokens[:prompt_length], prompt_tokens
+        ):
             token_ids.append(int(full_tokens[prompt_length].item()))
 
     return list(dict.fromkeys(token_ids))
